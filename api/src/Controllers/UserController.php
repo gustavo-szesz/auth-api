@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Http\Response;
 use App\Http\Request;
 use App\Services\UserService;
+use App\Core\Cache;
 
 class UserController
 {
@@ -22,6 +23,9 @@ class UserController
                 'data'    => $userService['data'] ?? null
             ], 400);
         }
+
+        // Limpa o cache de usuários após criar um novo
+        Cache::delete('users_list');
 
         return $response::json([
             'error'   => false,
@@ -58,7 +62,19 @@ class UserController
 
     public function fetch(Request $request, Response $response)
     {
-                $authorization = $request::authorization();
+        $authorization = $request::authorization();
+        $cacheKey = 'user_' . md5($authorization);
+
+        // Tenta obter do cache primeiro
+        $cachedData = Cache::get($cacheKey);
+        if ($cachedData !== null) {
+            return $response::json([
+                'error'   => false,
+                'success' => true,
+                'data'    => $cachedData,
+                'cached'  => true
+            ], 200);
+        }
 
         $userService = UserService::fetch($authorization);
 
@@ -78,12 +94,14 @@ class UserController
             ], 400);
         }
 
-        $response::json([
+        // Salva no cache por 1 hora
+        Cache::set($cacheKey, $userService);
+
+        return $response::json([
             'error'   => false,
             'success' => true,
             'data'    => $userService
         ], 200);
-        return;
     }
 
     public function update(Request $request, Response $response)
@@ -110,12 +128,14 @@ class UserController
             ], 400);
         }
 
-        $response::json([
+        // Limpa o cache do usuário após atualização
+        Cache::delete('user_' . md5($authorization));
+
+        return $response::json([
             'error'   => false,
             'success' => true,
             'message' => $userService
         ], 200);
-        return;
     }
 
     public function remove(Request $request, Response $response, array $id)
@@ -140,11 +160,14 @@ class UserController
             ], 400);
         }
 
-        $response::json([
+        // Limpa o cache do usuário após deleção
+        Cache::delete('user_' . md5($authorization));
+        Cache::delete('users_list');
+
+        return $response::json([
             'error'   => false,
             'success' => true,
             'message' => $userService
         ], 200);
-        return;
     }
 }

@@ -6,6 +6,6 @@ class HomeController
 {
     public function index()
     {
-        echo 'Welcome to the Home Page!';
+        echo 'This is a health check endpoint';
     }
 }
